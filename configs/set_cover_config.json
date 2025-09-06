@@ -1,0 +1,120 @@
+{
+    "model": {
+        "base": {
+            "hidden_dim": 256,
+            "num_layers": 6,
+            "num_heads": 4,
+            "dropout_rate": 0.1,
+            "attention_heads": 4,
+            "intermediate_dim": 512
+        },
+        "small": {
+            "hidden_dim": 64,
+            "num_layers": 3,
+            "dropout_rate": 0.1,
+            "attention_heads": 2,
+            "intermediate_dim": 128
+        },
+        "large": {
+            "hidden_dim": 512,
+            "num_layers": 8,
+            "dropout_rate": 0.15,
+            "attention_heads": 8,
+            "intermediate_dim": 1024,
+            "batch_size": 32768
+        }
+    },
+    "training": {
+        "base": {
+            "lr": 0.001,
+            "min_epochs": 30,
+            "max_epochs": 200,
+            "patience": 40,
+            "weight_decay": 0.0005,
+            "batch_size": 512,
+            "coverage_target": 0.97,
+            "prob_target": 0.3,
+            "stability_window": 5,
+            "phase2_cov": 0.95,
+            "phase2_patience": 3,
+            "warmup_epochs": 10,
+            "ema_decay": 0.999
+        },
+        "small": {
+            "lr": 0.002,
+            "min_epochs": 30,
+            "max_epochs": 150,
+            "patience": 15,
+            "weight_decay": 0.01,
+            "batch_size": 32,
+            "coverage_target": 0.95,
+            "prob_target": 0.4,
+            "stability_window": 3
+        },
+        "large": {
+            "lr": 0.0005,
+            "min_epochs": 20,
+            "max_epochs": 100,
+            "patience": 10,
+            "weight_decay": 0.001,
+            "batch_size": 1024,
+            "coverage_target": 0.99,
+            "prob_target": 0.2,
+            "stability_window": 3
+        }
+    },
+    "loss": {
+        "coverage_weight": 1.0,
+        "sparsity_weight": {
+            "initial": 0.1,
+            "final": 1.0
+        },
+        "entropy_weight": {
+            "initial": 0.01,
+            "final": 0.001
+        },
+        "size_penalty": 0.001
+    },
+    "stability": {
+        "thresholds": {
+            "loss": 0.1,
+            "coverage": 0.01,
+            "mean_prob": 0.05,
+            "std_prob": 0.01
+        },
+        "small": {
+            "loss": 0.2,
+            "coverage": 0.02,
+            "mean_prob": 0.1,
+            "std_prob": 0.02
+        },
+        "large": {
+            "loss": 0.05,
+            "coverage": 0.005,
+            "mean_prob": 0.02,
+            "std_prob": 0.005
+        }
+    },
+    "post_processing": {
+        "temperature": 0.5,
+        "batch_size": {
+            "small": 128,
+            "medium": 512,
+            "large": 32768
+        },
+        "optimization": {
+            "max_iterations": 100,
+            "convergence_threshold": 1e-6
+        },
+        "weights": {
+            "coverage": 0.6,
+            "efficiency": 0.3,
+            "nn_influence": 0.4
+        },
+        "alpha_ranges": {
+            "small": [0.45, 4.0],
+            "medium": [0.45, 3.0],
+            "large": [0.45, 2.0]
+        }
+    }
+}

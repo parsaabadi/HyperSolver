@@ -1,0 +1,18 @@
+{
+  "folder_path": "/Users/parsaboss/Desktop/AllCode/3cutversionSS/capsule-6230809/code/data/hypergraph_data/synthetic",
+  "training": {
+    "base": {
+      "lr": 1e-2,
+      "max_epochs": 200,
+      "min_epochs": 1,
+      "patience": 20,
+      "coverage_floor": 0.05,
+      "coverage_floor_patience": 5,
+      "phase2_cov": 0.95,
+      "phase2_patience": 3,
+      "weight_decay": 0.0005,
+      "tol": 1e-4
+    },
+    "num_partitions": 2
+  }
+}

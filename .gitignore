@@ -1,0 +1,34 @@
+# Virtual environments
+venv/
+myenv/
+myenv3.10/
+env/
+ENV/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Results and models
+results/
+models/
+*.pt
+*.pth
+*.hdf5
+
+# Logs and temporary files
+*.log
+temp_*
+*.tmp
+
+# OS files
+.DS_Store
+.vscode/
+
+# LaTeX auxiliary files
+*.aux
+*.fls
+*.fdb_latexmk
+*.synctex.gz

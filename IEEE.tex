@@ -1,0 +1,538 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{HyperSolver: A Practical Unified Framework for Large-Scale Combinatorial Optimization \\}
+
+
+\author{\IEEEauthorblockN{Parsa Abadi}
+\IEEEauthorblockA{\textit{Department of Computer Science} \\
+\textit{University of Western Ontario}\\
+London, Canada \\
+pabadi2@uwo.ca}
+\and
+\IEEEauthorblockN{Roberto Solis-Oba}
+\IEEEauthorblockA{\textit{Department of Computer Science} \\
+\textit{University of Western Ontario}\\
+London, Canada \\
+solis@csd.uwo.ca}\\ }
+
+
+\maketitle
+
+\begin{abstract}
+We present HyperSolver, a unified hypergraph neural network framework designed to solve NP-hard combinatorial optimization problems using a single neural network architecture. These problems typically require selecting an optimal combination or subset of elements from a universe based on specific criteria or constraints defined for each problem. To demonstrate HyperSolver's unified approach, we apply the same neural network architecture to several minimization and maximization problems, including set cover, hitting set, subset sum, hypergraph max cut, and hypergraph multiway cut. We represent each problem instance as a hypergraph where edges can connect multiple nodes simultaneously to capture multi-element relationships. HyperSolver learns through unsupervised training, using problem-specific loss functions rather than requiring pre-computed optimal solutions. HyperSolver generates high-quality solutions without labelled data. We evaluated HyperSolver on synthetic benchmark datasets with controlled structural parameters (node degree constraints and hyperedge density levels ranging from 0.05\% to 10.0\% of total nodes) and compared its performance to the commercial solver CPLEX~\cite{IBM2020}, traditional heuristics, and HypOp~\cite{Heydaribeni2024} a hypergraph neural network solver. HyperSolver consistently computes near-optimal solutions efficiently, achieving 6.9 times speedups over CPLEX on large instances and 199 times speedups over competing neural methods. HyperSolver transfers knowledge across problem types. For example, we trained HyperSolver on the set cover problem (a minimization task) and evaluated it on instances of the hypergraph max cut problem (a maximization task) and vice versa. In both cases HyperSolver produced high-quality solutions demonstrating its versatility for combinatorial optimization tasks.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Hypergraph neural networks, combinatorial optimization, NP-hard problems, machine learning, approximation algorithms
+\end{IEEEkeywords}
+
+\section{Introduction}
+\subsection{Background and Motivation}
+Combinatorial optimization lies at the heart of many prac-
+tical problems across numerous fields, including business,
+engineering, and healthcare. When facing problems such as
+routing delivery vehicles, scheduling staff shifts, or placing
+surveillance cameras, we face a fundamental question: How
+do we find the best possible solution? These problems involve
+discrete choices, such as whether to include or exclude specific
+items, how to sequence operations, or how to allocate re-
+sources among competing needs. The importance of combina-
+torial optimization spans routine operations, such as managing
+inventories, to critical applications, like designing emergency
+response systems and optimizing energy distribution networks.
+A scheduler with 50 binary decisions faces \(2^{50} \approx 1.13 \times 10^{15}\) possible combinations to find the optimal solution. As the size
+of combinatorial optimization problems grows, the solution
+space, meaning all possible solutions, expands beyond com-
+prehension, growing exponentially. The term “combinatorial
+explosion” refers to the rapid growth in the number of possible
+solutions as the size of a problem increases. An algorithm that
+methodically evaluates every possible solution (an exhaustive
+search algorithm) would require time far beyond any practical
+limit, even with the most powerful supercomputers. The field
+of computational complexity theory, a branch of computer sci-
+ence that studies the difficulty of solving problems, formalizes
+this intuition by introducing the class of NP-hard problems~\cite{GareyJohnson1979,Cook1971}.
+NP-hard problems have no known algorithms that can solve
+them efficiently in time polynomial in the size of the input.
+In simpler terms, no fast solutions yet exist for all these
+challenging problems.
+
+\subsection{Challenges in Combinatorial Optimization}
+The difficulty of solving combinatorial optimization prob-
+lems has led researchers to develop multiple solution ap-
+proaches, each with inherent limitations. Exact algorithms
+guarantee to compute optimal solutions: Branch-and-bound
+and branch-and-cut methods systematically explore the so-
+lution space by building partial solutions and eliminating
+unpromising ones, but their effectiveness diminishes as the
+problem size grows~\cite{LandDoig1960,PadbergRinaldi1991}. Exact methods struggle with large in-
+stances as they require substantial computation time. Approx-
+imation algorithms address the computational limitations of
+exact methods. These algorithms have polynomial running
+time and do not compute optimal solutions, but provide
+mathematical guarantees for the quality of their solutions~\cite{Vazirani2001}.
+Metaheuristics represent another approach to solving combina-
+torial optimization problems. These methods can find solutions
+for large problems within reasonable time, but they provide no
+guarantees on solution quality~\cite{Kirkpatrick1983,Holland1975,Glover1989}.
+A fundamental limitation in many traditional approaches for
+solving combinatorial optimization problems stems from the
+way in which they represent problems. Graph-based problem
+representations, where each edge connects exactly two nodes,
+cannot naturally capture these higher-order relationships. Hy-
+pergraphs address these limitations by extending the concept
+of graphs. While a graph connects exactly two nodes with
+each edge, a hypergraph allows a single connection (called
+a hyperedge) to link any number of nodes. They provide an
+efficient way to represent multi-element interactions~\cite{Berge1973}.
+
+\subsection{Machine Learning and Hypergraphs}
+Machine learning approaches for combinatorial optimiza-
+tion have emerged. Neural networks can learn patterns from
+data, capturing solution strategies. Graph Neural Networks
+(GNNs) have shown particular promise in combinatorial opti-
+mization by explicitly modelling the structure of graph opti-
+mization problems~\cite{Scarselli2009,KipfWelling2017}. However, many learning-based approaches
+face two major limitations: 1. They operate on graph models
+rather than hypergraph models, requiring artificial transfor-
+mations to handle multi-element relationships. 2. They often
+require extensive training on labelled examples (examples
+with known optimal solutions), which are typically unavailable
+for large-scale NP-hard problems. These limitations highlight
+the need for approaches that directly leverage hypergraph
+representations and can learn effective solution strategies
+without relying on pre-solved examples~\cite{Feng2019}. Our research focuses
+on five classical combinatorial optimization problems that
+demonstrate key modeling and computational challenges.
+
+\subsection{Contributions of This Work}
+To address these challenges, we propose HyperSolver, a learning-based framework that solves combinatorial optimization problems under a single neural network architecture. Unlike specialized solvers that require different algorithms for each problem type, HyperSolver uses the same hypergraph neural network, training procedures, and solution extraction methods across all supported problems, adapting only the loss function and post-processing steps for each specific problem. 
+
+HyperSolver provides several capabilities:
+\begin{itemize}
+\item It operates directly on hypergraph problem representations, capturing multi-element relationships.
+\item It learns problem structures through unsupervised training, removing the need for pre-solved examples.
+\item It incorporates controlled parameter perturbations during training to escape poor local optima: After two failed restarts, small random nudges (mean 0, std 0.05) are added to all network weights.
+\item It supports cross-problem transfer learning, allowing knowledge gained from solving one problem type to accelerate learning on others.
+\item It scales efficiently to instances with tens of thousands of elements.
+\end{itemize}
+
+Why Use HyperSolver: Traditional optimization requires different algorithms for each problem: branch-and-bound for set cover, spectral methods for max cut, dynamic programming for subset sum. HyperSolver replaces all these with one architecture. Organizations can solve diverse optimization challenges with a single tool, eliminating the need to maintain multiple codebases, learn different algorithms, or hire specialists for each problem type. Adapting HyperSolver to new combinatorial optimization problems requires only three modifications: hypergraph encoding design, loss function specification, and post-processing procedures. The core neural architecture, training mechanisms, and enhancement strategies remain unchanged.
+
+\section{Methods and Framework}
+The framework is guided by three design principles:
+\begin{enumerate}
+\item Preserve structure: Represent multi-element constraints directly as hyperedges rather than decomposing them into pairwise edges.
+\item Learn from structure, not labels: Train the neural network to recognize good decisions from problem structure without requiring pre-solved datasets.
+\item Achieve robustness through adaptivity: Implement adaptive mechanisms that escape local minima and enable effective transfer of knowledge across related problems.
+\end{enumerate}
+
+\subsection{Problem Formulation and Hypergraph Representation}
+We model each combinatorial optimization problem as a hypergraph \(H = (V, E)\), where \(V\) is the set of nodes (decision variables) and \(E\) is the set of hyperedges (constraints). A hyperedge \(e \in E\) connects any subset of nodes \(e \subseteq V\). The incidence matrix \(A \in \{0,1\}^{|V| \times |E|}\) records node-hyperedge membership, where \(A_{i,e} = 1\) if node \(i\) belongs to hyperedge \(e\). This representation directly captures multi-element relationships without reduction to pairwise edges.
+
+Hypergraph Encoding Clarification: The hypergraph representation varies by problem type. For set cover: Nodes = elements to be covered, hyperedges = available sets. For subset sum: Nodes = items with weights, hyperedges = constraints. For hypergraph cuts: Nodes = entities to partition, hyperedges = groups to split. This encoding allows the same neural architecture to process different problem structures.
+
+Each decision variable is relaxed into a probability \(p_i \in [0,1]\), allowing gradient-based optimization. Final discrete selections are obtained via adaptive thresholding followed by problem-specific post-processing:
+
+Set Cover Post-processing: (1) Remove redundant sets whose covered elements are already covered by other selected sets, (2) Greedily add sets to cover remaining uncovered elements using the heuristic of selecting the set covering the most uncovered elements.
+
+Subset Sum Post-processing: Iterative local search: If current sum exceeds target, remove the item whose exclusion brings sum closest to target without going below; if sum falls short, add item bringing sum closest without exceeding target.
+
+Hypergraph Cut Post-processing: Local search where each node considers moving to different partitions to maximize cut hyperedges, limited to two complete passes for efficiency.
+
+Generalizability: The framework extends to combinatorial optimization problems that meet specific structural requirements: (1) discrete decision variables, (2) constraints involving multiple elements simultaneously, (3) objectives expressible as functions of selection probabilities, and (4) feasibility requirements encodable in post-processing procedures. These criteria define a substantial class of problems including coverage, partitioning, and selection problems, though not all combinatorial problems meet these requirements.
+
+\subsection{HyperSolver Architecture}
+
+\paragraph{Message Passing}
+HyperSolver employs a two-stage message passing mechanism between nodes and hyperedges:
+
+Stage 1 - Nodes to Hyperedges: Each hyperedge collects and averages information from all its connected nodes:
+\begin{equation}
+\mathbf{m}_e = \frac{1}{|e|} \sum_{i \in e} \mathbf{h}_i^{(l)}
+\end{equation}
+
+Stage 2 - Hyperedges to Nodes: Each node then collects information from all hyperedges it participates in:
+\begin{equation}
+\mathbf{h}_i^{(l+1)} = \phi\left(\mathbf{W}_v^{(l)} \left[\mathbf{h}_i^{(l)} \,\|\, \frac{1}{d_i} \sum_{e \ni i} \mathbf{m}_e\right] + \mathbf{b}_v^{(l)}\right)
+\end{equation}
+
+where \(\phi\) is ReLU activation (chosen for computational efficiency and gradient stability), \(\|\) denotes vector concatenation, \(d_i\) is the degree of node \(i\), \(\mathbf{W}_v^{(l)}\) is the learnable weight matrix, and \(\mathbf{b}_v^{(l)}\) is the bias vector. This mechanism allows nodes to exchange information indirectly through hyperedges, capturing higher-order constraints.
+
+\paragraph{Probability Score Generation}
+For binary problems: \(p_i = \sigma(\mathbf{w}^\top \mathbf{h}_i^{(L)} + b)\) where \(\sigma\) is the sigmoid function.
+For k-way partitioning: \(p_{i,m} = \text{softmax}(\mathbf{W} \mathbf{h}_i^{(L)} + \mathbf{b})_m\) with \(\sum_m p_{i,m} = 1\).
+The framework enforces binary convergence through a separation loss term, penalizing uncertain probabilities near 0.5.
+
+\subsection{Loss Functions for Supported Problems}
+Each optimization problem has a custom unsupervised loss function.
+
+\paragraph{Set Cover}
+Objective: Select minimum sets to cover all elements \(U\).
+\begin{equation}
+L_{\text{Set Cover}} = L_{\text{coverage}} + L_{\text{partial}} + L_{\text{density}} + L_{\text{separation}}.
+\end{equation}
+
+Coverage:
+\begin{align}
+L_{\text{coverage}} &= 350 \times \frac{1}{|U|} \sum_{i \in U} (1 - \mathrm{coverage}_i)^2, \\
+\mathrm{coverage}_i &= \sum_{j:\, i \in S_j} p_j.
+\end{align}
+Coefficient 350 ensures strong incentive for full coverage while maintaining balanced optimization with other loss terms.
+
+Partial Coverage:
+\begin{equation}
+L_{\text{partial}} = 60 \times \frac{1}{|U|} \sum_{i \in U} \max(0, 0.5 - \mathrm{coverage}_i)^2.
+\end{equation}
+Coefficient 60 provides moderate additional pressure for severely undercovered elements (coverage < 0.5) without overwhelming other terms.
+
+We use the additive coverage \(\sum p_j\) because it directly mirrors the LP-relaxation constraint \(\sum_{j:i\in S_j} x_j \ge 1\) and provides dense, stable gradients early in training; a comparative study against OR-style surrogates is left for future work.
+
+Density:
+\begin{equation}
+L_{\text{density}} = (1 + 3 \cdot \mathrm{progress}) \left( \frac{\mathrm{mean}(p) - \mathrm{target\_density}}{\mathrm{target\_density}} \right)^2.
+\end{equation}
+where \(\mathrm{progress} = \text{current epoch} / \text{total epochs} \in [0,1]\) and target density = max(0.005, estimated sets / total sets), with estimated sets = max(3, \(\log_2\)(n)) for dense problems or max(\(\log_2\)(n), \(\sqrt{n}\)/2) for sparse problems.
+
+Separation:
+\begin{equation}
+L_{\text{separation}} = (10 + 30 \cdot \mathrm{progress}) \cdot \frac{1}{|S|} \sum_{j \in S} p_j(1 - p_j).
+\end{equation}
+Progressive weighting \((10 + 30 \times \text{progress})\) increases separation pressure as training advances, pushing probabilities toward binary values (0 or 1).
+
+\paragraph{Hitting Set}
+The hitting set problem is the mathematical dual of set cover, where the roles of elements and sets are reversed. Any instance of one can be transformed to the other, yielding identical algorithmic behavior and performance. Therefore, we present detailed results only for set cover, with hitting set support validated through this duality.
+
+\paragraph{Subset Sum}
+Objective: Select numbers with total weight close to target \(T\).
+\begin{equation}
+L_{\text{Subset Sum}} = \left( \sum_{i=1}^n w_i p_i - T \right)^2 + 20 \cdot \frac{1}{n} \sum_{i=1}^n p_i(1 - p_i).
+\end{equation}
+
+\paragraph{Hypergraph Max Cut}
+Objective: Partition nodes into 2 groups maximizing cut hyperedges.
+\begin{align}
+L_{\text{Max Cut}} &= - \sum_{e \in E} \mathrm{Cut}(e), \qquad \mathrm{Cut}(e) = 1 - \mathrm{Uncut}(e), \\
+\mathrm{Uncut}(e) &= \prod_{i \in e} p_i + \prod_{i \in e} (1 - p_i).
+\end{align}
+
+\paragraph{Hypergraph Multiway Cut}
+Objective: Partition nodes into \(k\) groups maximizing cut hyperedges.
+\begin{align}
+L_{\text{Multiway Cut}} &= - \sum_{e \in E} \mathrm{Cut}(e), \qquad \mathrm{Cut}(e) = 1 - \mathrm{Uncut}(e), \\
+\mathrm{Uncut}(e) &= \sum_{m=1}^{k} \prod_{i \in e} p_{i,m},
+\end{align}
+where \(p_{i,m}\) is probability of node \(i\) in partition \(m\).
+
+For numerical stability in k-way partitioning, we compute in log-space:
+\begin{equation}
+\log(\mathrm{Uncut}(e)) = \text{LogSumExp}\left\{\sum_{i \in e} \log p_{i,1}, \ldots, \sum_{i \in e} \log p_{i,k}\right\}
+\end{equation}
+
+For multiway cut, we add entropy regularization:
+\begin{equation}
+L_{\text{entropy}} = -\lambda \sum_i \sum_{m=1}^k p_{i,m} \log p_{i,m}
+\end{equation}
+where \(\lambda = 0.1\) provides regularization toward decisive partitioning. Since minimizing \(L_{\text{entropy}}\) reduces entropy, this encourages low-entropy (decisive) assignments.
+
+\subsection{Training and Optimization}
+Training is unsupervised. Loss functions directly encode constraints and objectives, removing dependence on pre-computed labels. The Adam optimizer updates parameters:
+\begin{equation}
+\theta_{t+1} = \theta_t - \eta \cdot \frac{\hat{m}_t}{\sqrt{\hat{v}_t} + \epsilon},
+\end{equation}
+with adaptive moment estimates \(\hat{m}_t, \hat{v}_t\). Learning rates (e.g., \(5 \times 10^{-4}\)), gradient clipping, and early stopping ensure stability. Training stops if solution quality plateaus for 10 epochs, exceeds predefined thresholds, or reaches maximum epochs (200). Convergence is not guaranteed theoretically, but adaptive restart mechanisms prevent stagnation in local minima across all tested instances.
+
+Each epoch requires \(\mathcal{O}(|A| \cdot d + |V| \cdot d^2)\) operations, where \(|A|\) is number of node-hyperedge incidences and \(d = 128\) is the embedding dimension, which reduces to \(\mathcal{O}(|A| + |V|)\) for fixed \(d=128\). Thus training scales linearly with problem size.
+
+\subsection{Enhancement and Generalization Mechanisms}
+\begin{itemize}
+  \item Adaptive Restart: If loss stagnates beyond threshold epochs, parameters are reinitialized to escape local minima.
+  \item Dynamic Thresholding: Binary selections extracted using an adaptive threshold computed as:
+  \[
+  T_{\text{dynamic}} = \frac{1}{n}\sum_{i=1}^{n} p_i + 0.5 \times \sqrt{\frac{1}{n}\sum_{i=1}^{n} (p_i - \bar{p})^2}
+  \]
+  clamped to \([0.05, 0.95]\) for numerical stability, where \(p_i\) is the probability score for element \(i\).
+  \item Local Refinements: After extraction, problem-specific corrections ensure feasibility: Removing redundant sets in set cover, adding or removing items to approach target sum in subset sum, and local partition moves in hypergraph cuts.
+  \item Cross-Problem Pretraining: Pretrained embeddings from one problem type (e.g., set cover) are effectively transferred to related problems (e.g., hypergraph max cut), leveraging learned hypergraph structural patterns to significantly reduce overall training cost and computational requirements.
+\end{itemize}
+
+\subsection{Proposed Framework}
+
+The complete training algorithm is shown below:
+
+Training Algorithm: HyperSolver uses adaptive restart training with the following key steps: (1) Initialize network parameters uniformly in \([-0.01, 0.01]\) (conservative initialization prevents bias) and Adam optimizer with learning rate \(5 \times 10^{-4}\) (moderate rate ensures stable convergence); (2) For each epoch, forward pass through hypergraph to compute probabilities, evaluate quality, and update best solution if improved; (3) Backpropagate gradients, clip to max norm 2.0 (prevents gradient explosion), and update parameters; (4) Check adaptive restart conditions (quality threshold 0.05 indicates stagnation - less than 5\% relative improvement over 10 epochs) and early stopping criteria; (5) Apply dynamic thresholding to best probabilities and post-process for final discrete solution.
+
+\section{Experimental Setup}
+
+\subsection{Synthetic Dataset Generation}
+We generate hypergraphs with \(n\) nodes and \(m = 2n\) hyperedges. For hypergraph problems (set cover, hitting set, hypergraph cuts), we use two key parameters: (1) Node Degree Constraint controlling how many hyperedges each node participates in, and (2) Hyperedge Size Constraint (Density) controlling maximum nodes per hyperedge as percentage of total nodes. We enforce structural constraints: minimum 2 nodes per hyperedge, no duplicates, and all nodes connected. Density refers to maximum hyperedge size as a percentage of total nodes (e.g., 10\% density means hyperedges contain at most \(0.1 \times n\) nodes). For multiway cut experiments, we use \(k=3\) partitions. For subset sum: instances use large integer weights (\(10^{10}\) to \(10^{19}\) range) with target \(T = \lfloor 0.5\sum\text{weights}\rfloor\). Easy (30 items), Medium (50 items), Hard (80 items) with exponentially increasing weight magnitudes and target sums. We create three difficulty levels: Easy (30 items, search space \(2^{30}\)), Medium (50 items, search space \(2^{50}\)), and Hard (80 items, search space \(2^{80}\)) with different weight distributions but identical target sums within each level.
+
+\subsection{Experimental Methodology}
+We ensure meaningful statistical results through controlled testing: For each problem configuration we generate three independent instances with different random topologies while maintaining identical structural specifications, and each instance is solved ten times using different random seeds. Each instance's performance is averaged over its 10 runs. Tables report results from one representative instance per configuration to demonstrate typical performance, while the other instances validate algorithmic robustness across different topologies.
+
+For fair comparison, CPLEX receives a time budget equal to ten times the HyperSolver runtime. This ensures CPLEX has sufficient time to find good solutions while maintaining practical experimental runtime. CPLEX v12.10 uses default settings, MIPGap=0.01, emphasis on optimality. All other baselines (e.g., HypOp) are given the same wall-clock budget as CPLEX.
+
+Training uses two approaches: Instance-specific models train up to 200 epochs with adaptive restart, while transfer learning models fine-tune for at most 60 epochs using pre-trained weights from related problems. 
+For space efficiency in table headers and captions, HyperSolver is abbreviated as "HS" (HyperSolver). Due to conference space constraints, tables present representative results from comprehensive evaluations spanning multiple problem sizes, hyperedge densities (0.05-10\%), and structural configurations, with detailed results available upon request.
+
+\section {Results}
+In this section, we present experimental evaluations of HyperSolver across four representative combinatorial optimization problems: Set Cover, Hypergraph Max Cut, Hypergraph Multiway Cut, and Subset Sum. Hitting set results are omitted as it is the mathematical dual of set cover with identical performance characteristics. Results are reported in terms of solution quality, runtime performance, and memory usage, with comparisons to exact methods such as CPLEX and state-of-the-art neural frameworks such as HypOp.
+
+\subsection{Set Cover}
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{HS Solver Total Runtime vs Density by Problem Size.pdf}
+    \caption{HyperSolver runtime scaling on set cover instances. When problem size increases 20\(\times\) (0.5k to 10k nodes), runtime increases only 15-28\(\times\) (vs 400\(\times\) if runtime grew quadratically with size), completing within minutes even on 30k\(\times\)60k problems.}
+    \label{fig:setcover-runtime}
+\end{figure}
+Fig. 1 illustrates HyperSolver's runtime scaling across different problem sizes and hyperedge density levels, showing efficient scaling where 20\(\times\) problem size increase results in only 15-28\(\times\) runtime increase. Each data point represents the average performance across 30 independent runs (3 instances \(\times\) 10 random seeds). HyperSolver's neural network component achieves high raw coverage across all configurations: 0.5k \(\times\) 1k instances achieve 99.8\% coverage, 2k \(\times\) 4k instances reach 97.9\% coverage, and 30k \(\times\) 60k instances maintain 96.2\% coverage. Performance improves with hyperedge size as hyperedges contain more elements: small hyperedge instances (0.5\% density) achieve 77-86\% coverage, moderate hyperedges (1.0\%) reach 83-91\%, and dense hyperedges (5.0\%+) consistently exceed 94\%.
+
+Practical performance confirms scalability: all instances up to 10k \(\times\) 20k complete the entire process (training, data preprocessing, and solution extraction) within 1 minute, while 30k \(\times\) 60k instances finish within 6 minutes, with a maximum runtime of 338 seconds. Table I demonstrates the time vs quality trade-off: On moderate instances (2k\(\times\)4k), both methods require similar time (9.6s) but CPLEX produces 11.3\% smaller covers. However, on large instances (30k\(\times\)60k), HyperSolver achieves 6.9\(\times\) speedup (156s vs 1083s) while producing solutions only 7.5\% larger (2040 vs 1897 sets). This shows that small quality reduction provides large time savings, enabling solution of problems that timeout with exact methods. For context, the greedy approximation algorithm has theoretical ratio 1+ln(n) \(\approx\) 7.9 for 1000 elements, making 7.5\% deviation competitive.
+
+\begin{table}[htbp]
+\centering
+\caption{Set Cover: Runtime and Solution Quality Comparison}
+\label{tab:setcover}
+\footnotesize
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{|l|r|r|r|r|}
+\hline
+\textbf{Problem} & \textbf{HS} & \textbf{HS} & \textbf{CPLEX} & \textbf{CPLEX} \\
+\textbf{Size} & \textbf{Time(s)} & \textbf{Sets} & \textbf{Time(s)} & \textbf{Sets} \\
+\hline
+2k\(\times\)4k & 9.63 & 521.27 & 9.63 & 461.67 \\
+10k\(\times\)20k & 40.90 & 1198.67 & 65.05 & 1115 \\
+30k\(\times\)60k & 156.22 & 2040.33 & 1082.67 & 1897 \\
+\hline
+\end{tabular}
+\begin{flushleft}
+\vspace{1pt}
+\footnotesize
+\textit{Note:} HyperSolver speedups increase with problem size: 1.0\(\times\) speedup (2k), 1.6\(\times\) speedup (10k), 6.9\(\times\) speedup (30k) with 7-13\% larger covers. Each value averaged over 10 runs per instance.
+\end{flushleft}
+\end{table} 
+
+\subsection{Hypergraph Max Cut}
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{HypermaxCut- Runtime vs. Density — HS vs. CPLEX vs. HypOp_2k_4k.pdf}
+    \caption{Runtime comparison on 2k\(\times\)4k hypergraph max cut. HyperSolver shows stable performance while HypOp runtime increases rapidly beyond density 1\%, reaching over 300 seconds at highest densities.}
+    \label{fig:maxcut-runtime}
+\end{figure}
+HyperSolver matches or outperforms CPLEX and HypOp across scales, with results averaged over 30 independent runs. On 10k \(\times\) 20k instances, HyperSolver's runtime decreases from 39.68s at 0.5\% density to 9.34s at 10\% density, while CPLEX runtime increases from 27.93s to 46.91s, showing different scaling patterns. At dense hyperedges, HyperSolver is up to 5\(\times\) faster than CPLEX, with both attaining the same cut value (20{,}000) on these instances. Table II shows that compared to HypOp, HyperSolver provides large speedups: 199\(\times\) faster on 2k\(\times\)4k dense instances while attaining identical cut values (4000/4000). Fig. 2 illustrates runtime scalability across hyperedge densities, highlighting HyperSolver's stable performance compared to HypOp's large runtime increases beyond density 1\%.
+
+Transfer learning experiments validate performance: pretraining on set cover accelerates max cut optimization while maintaining solution quality, with all large instances (\(n \geq 30{,}000\)) attaining the same cut values as the baselines.
+
+\begin{table}[htbp]
+\centering
+\caption{Hypergraph Max Cut: Runtime Comparison with Optimal Quality}
+\label{tab:maxcut}
+\footnotesize
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{|l|r|r|r|r|}
+\hline
+\textbf{Problem} & \textbf{HS} & \textbf{CPLEX} & \textbf{HypOp} & \textbf{HS vs} \\
+\textbf{Size} & \textbf{Time(s)} & \textbf{Time(s)} & \textbf{Time(s)} & \textbf{HypOp} \\
+\hline
+2k\(\times\)4k & 1.65 & 1.48 & 327.7 & 199\(\times\) \\
+10k\(\times\)20k & 21.06 & 30.07 & -- & 1.4\(\times\) \\
+30k\(\times\)60k & 111.11 & 244.02 & -- & 2.2\(\times\) \\
+\hline
+\end{tabular}
+\begin{flushleft}
+\vspace{1pt}
+\footnotesize
+\textit{Note:} All methods attained the same reported cut value on these runs (not a proof of optimality). HyperSolver runtime performance: 199\(\times\) faster than HypOp (1.65s vs 327.7s), 1.4\(\times\) faster than CPLEX on 10k instances, 2.2\(\times\) faster than CPLEX on 30k instances. Each value averaged over 10 runs per instance.
+\end{flushleft}
+\end{table}
+
+\subsection{Hypergraph Multiway Cut}
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{Hypermultiway Cut- HS vs. CPLEX Cut Size (n = 30,000, e = 60,000).pdf}
+    \caption{Multiway-cut quality at 30k\(\times\)60k. HyperSolver (red bars) cuts \(\geq\)99.9\% of hyperedges, while CPLEX (blue bars) cuts only 2--21\% within the allocated budgets.}
+    \label{fig:multiway-quality}
+\end{figure}
+
+HyperSolver consistently cuts \(\geq 99.9\%\) of hyperedges across all scales, with results averaged over 30 independent executions per configuration. Near-perfect cuts (99.9\%) are achievable in our synthetic instances due to uniform random hyperedge generation creating balanced partitionable structures. For \(k=3\) partitions and large hyperedge sizes \(s\), the expected cut probability is \(1-3^{1-s} \approx 1\) for \(s \gg 1\). At 30k \(\times\) 60k instances, HyperSolver cut sizes range from 59,918 to 60,000 out of 60,000 total hyperedges. Table III quantifies this dominance: HyperSolver cuts 99.9\% of hyperedges in 106.45s while CPLEX cuts only 3.4\% of hyperedges in 209.64s, corresponding to an \(\approx\)30\(\times\) higher fraction of hyperedges cut within the budget. This performance gap widens across different hyperedge densities, with CPLEX cutting only 2-21\% of hyperedges while HyperSolver maintains consistent high performance. Fig. 3 illustrates both the quality dominance and stable runtime performance of HyperSolver compared to CPLEX's deteriorating performance on large multiway partitioning problems.
+
+\begin{table}[htbp]
+\centering
+\caption{Hypergraph Multiway Cut: Quality and Runtime Comparison (k=3 partitions)}
+\label{tab:multiway}
+\footnotesize
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{|l|r|r|r|r|}
+\hline
+\textbf{Problem} & \textbf{HS} & \textbf{HS} & \textbf{CPLEX} & \textbf{CPLEX} \\
+\textbf{Size} & \textbf{Time(s)} & \textbf{Cuts} & \textbf{Time(s)} & \textbf{Cuts} \\
+\hline
+10k\(\times\)20k & 13.74 & 19980 & 26.04 & 722.33 \\
+30k\(\times\)60k (0.5\%) & 106.45 & 59958 & 209.64 & 2056.67 \\
+30k\(\times\)60k (10\%) & 71.91 & 59954 & 472.18 & 12372.33 \\
+\hline
+\end{tabular}
+\begin{flushleft}
+\vspace{1pt}
+\footnotesize
+\textit{Note:} HyperSolver cuts \(\approx\)99.9\% of hyperedges, while CPLEX cuts only 3.6--20.6\% within the same budgets. The two 30k\(\times\)60k rows show different hyperedge density levels (0.5\% and 10\%). Each value averaged over 10 runs per instance.
+\end{flushleft}
+\end{table}
+\subsection{Subset Sum}
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{Solution_Quality_comparison.png}
+    \caption{Subset sum solution quality comparison. HyperSolver (blue) shows consistent deviations ($\approx$0.54–0.89\%) across all instances. Greedy (red) shows variable performance. CPLEX yields tighter deviations on easy and medium problem instances but does not return a solution within budget on hard problem instances.}
+    \label{fig:subset-quality}
+\end{figure}
+
+HyperSolver computes solutions for numerical optimization tasks, with all results based on 30 independent executions per difficulty level. Training times remain under one second (0.457-0.846s) for 30-80 items. Raw selections match final post-processed results, with complete agreement for 80-item instances. Table IV shows HyperSolver solves all instances while CPLEX fails on hard instances due to numerical precision limits. On tractable instances, CPLEX computes superior quality (0.02-0.03\% deviation) but HyperSolver maintains deviations below 1\% (0.54-0.89\%) with solution delivery across all difficulty levels. Fig. 4 shows the solution quality comparison, with HyperSolver bars present across all instances while CPLEX bars are absent for hard instances due to complete failure.
+
+\begin{table}[htbp]
+\centering
+\caption{Subset Sum: Performance Across Difficulty Levels}
+\label{tab:subsetsum}
+\footnotesize
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{|l|r|r|r|r|}
+\hline
+\textbf{Problem} & \textbf{HS} & \textbf{HS} & \textbf{CPLEX} & \textbf{Greedy} \\
+\textbf{Items} & \textbf{Time(s)} & \textbf{Dev(\%)} & \textbf{Dev(\%)} & \textbf{Dev(\%)} \\
+\hline
+30 & 0.46 & 0.54 & 0.02 & 1.24 \\
+50 & 0.68 & 0.64 & 0.03 & 0.58 \\
+80 & 0.85 & 0.89 & No solution (budget) & 1.12 \\
+\hline
+\end{tabular}
+\begin{flushleft}
+\vspace{1pt}
+\footnotesize
+\textit{Note:} HyperSolver solves all instances (30-80 items) with sub-second runtime and less than 1\% deviation. CPLEX times out on 80-item instances within the allocated time budget due to the combination of exponential search space (\(2^{80}\) possibilities) and large integer arithmetic with target sums exceeding \(10^{20}\). CPLEX succeeds on 30 and 50 item instances with 0.02-0.03\% deviation. Each value averaged over 10 runs per instance.
+\end{flushleft}
+\end{table}
+\subsection{Computational Efficiency and Scalability}
+Memory usage scales linearly with problem size. For fixed embedding dimension \(d\), peak training memory is \(O(d|V| + d|E| + |A|)\) to store node/edge states and incidence work buffers (fp32). Training times decrease with higher density, achieving faster convergence on dense instances. Transfer learning further improves computational efficiency, yielding 1.2-3.6\(\times\) speedups across different problem types while maintaining consistently high solution quality.
+
+\begin{table}[htbp]
+\centering
+\caption{Cross-Problem Transfer Learning: Training Acceleration}
+\label{tab:transfer}
+\footnotesize
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{|l|r|r|r|r|r|}
+\hline
+\textbf{Transfer} & \textbf{Problem} & \textbf{From} & \textbf{Pretrain} & \textbf{Solution} & \textbf{Speed} \\
+\textbf{Direction} & \textbf{Size} & \textbf{Scratch(s)} & \textbf{Time(s)} & \textbf{Quality(\%)} & \textbf{up} \\
+\hline
+SetCover→MaxCut & 2k\(\times\)4k & 17.67 & 14.16 & 100 & 1.2\(\times\) \\
+& 10k\(\times\)20k & 21.06 & 5.81 & 100 & 3.6\(\times\) \\
+MaxCut→SetCover & 2k\(\times\)4k & 9.63 & 3.01 & 99.8 & 3.2\(\times\) \\
+& 30k\(\times\)60k & 156.22 & 92.65 & 99.7 & 1.7\(\times\) \\
+\hline
+\end{tabular}
+\begin{flushleft}
+\vspace{1pt}
+\footnotesize
+\textit{Note:} Cross-problem transfer learning reduces training time: 1.2-3.6\(\times\) faster (SetCover→MaxCut), 1.7-3.2\(\times\) faster (MaxCut→SetCover) while maintaining 99.7-100\% solution quality. Quality measured as percentage of optimal objective value (100\% = optimal). Each value averaged over 10 runs per instance.
+\end{flushleft}
+\end{table} 
+
+\section{Discussion}
+Our results demonstrate that HyperSolver provides a unified framework for large-scale combinatorial optimization. Traditional approaches require different algorithms for each problem: branch-and-bound for set cover, spectral methods for max cut, dynamic programming for subset sum. HyperSolver replaces all these with one architecture. By formulating diverse problems within the same hypergraph neural architecture, the framework learns combinatorial patterns from problem structure (structural learning) rather than relying on pre-solved examples, replacing problem-specific algorithm engineering. Instead of maintaining separate solvers with distinct heuristics, HyperSolver adapts through hypergraph encodings and problem-specific loss functions while keeping the core architecture unchanged.
+
+A central observation across experiments is the linear scaling of runtime and memory. In our experiments, HyperSolver consistently solved instances with up to 30k \(\times\) 60k nodes within minutes (Fig. 1), while CPLEX either failed to converge or required gigabytes of memory. This scaling advantage stems from linear complexity \(O(|A| + |V|)\) for fixed embedding dimension d, contrasting with the exponential behavior of exact solvers. This scalability makes HyperSolver practical for time-sensitive applications.
+
+Tables I-V demonstrate HyperSolver's computational efficiency and solution quality across problem types. Table I shows HyperSolver produces larger solution sizes (7.5\% average) but computes 6.9\(\times\) speedup on large 30k\(\times\)60k instances where CPLEX requires 18 minutes compared to HyperSolver's 2.6 minutes. Table II shows HyperSolver attains the same cut values as baselines with 199\(\times\) speedup over HypOp on dense instances. Table III shows HyperSolver's performance on multiway partitioning: cutting 99.9\% of hyperedges while CPLEX cuts only 3.4\% of hyperedges within allocated time budgets. Table IV shows HyperSolver solves all subset sum instances while CPLEX fails on hard instances. Table V shows cross-problem transfer learning computes 1.2-3.6\(\times\) speedups while maintaining solution quality above 99.7\%.
+
+Performance comparisons show the trade-offs between neural and traditional methods. On hypergraph max cut, HyperSolver achieved 5\(\times\) speedups over CPLEX on dense instances and 199\(\times\) faster performance compared to HypOp (Fig.2). On hypergraph multiway cut, HyperSolver consistently cut \(\geq\)99.9\% of hyperedges while CPLEX cut only 2-21\% of hyperedges within allocated time budgets (Fig. 3). For subset sum problems, HyperSolver solved all instances efficiently, while CPLEX failed on hard problem instances. These results show: exact methods remain best for small, tractable instances, while HyperSolver dominates at scale or on dense hypergraph instances.
+
+HyperSolver provides robustness and transferability. In our experiments, adaptive restart strategies enabled reliable training across all tested configurations by reinitializing parameters when training stagnates. Table V validates the unified framework's core value proposition through cross-problem transfer learning: models pretrained on set cover problems accelerate max cut optimization by 1.2-3.6\(\times\), while maintaining 100\% solution quality. This works because the hypergraph message-passing mechanism learns problem-agnostic structural patterns (how many hyperedges each node participates in, hyperedge size, and connectivity patterns) that transfer across different optimization objectives. The pretrained embeddings capture these structural patterns, allowing faster convergence on new problems despite different objective functions (minimization vs maximization). This bidirectional knowledge transfer demonstrates that HyperSolver captures transferable combinatorial optimization patterns, enabling it to serve as a reusable foundation rather than a collection of problem-specific tools.
+
+Despite these advantages, some limitations remain. First, while HyperSolver scales efficiently and achieves strong solution quality, exact solvers such as CPLEX still produce slightly better results on small and medium problem instances of problems like set cover. Second, HyperSolver's runtime advantage is most evident on large or dense instances; on smaller cases, traditional solvers remain competitive. Third, the current implementation focuses on single-machine efficiency, whereas distributed scaling, as explored by HypOp, remains outside the scope of this work. Finally, HyperSolver depends on hypergraph-based problem encodings, which may require reformulation for problem classes not naturally expressed as hypergraphs. Scalability limits emerge when hyperedges contain thousands of nodes, as memory requirements scale as \(O(|V|d + |A|)\), while exact solvers face exponential search space growth that makes them impractical for such large constraint structures. In our experiments, we tested instances with up to 30k\(\times\)60k nodes within minutes. 
+
+Overall, these findings establish HyperSolver as a scalable, unified alternative to exact solvers that excels on large-scale and structurally complex problems. Its linear complexity, adaptability, and transferability advance practical neural optimization frameworks, while future work can extend its applicability through distributed implementations and exploration of additional problem domains.
+
+\section{Conclusion}
+This work presented HyperSolver, a unified hypergraph neural framework for large-scale combinatorial optimization. We addressed five classical problems---set cover, hitting set, hypergraph max cut, hypergraph multiway cut, and subset sum---demonstrating that they can all be solved within a single architecture that operates directly on hypergraph representations. By doing so, HyperSolver overcomes fundamental limitations of graph-based approaches and problem-specific solvers.
+Our research contributions can be summarized as follows:
+\begin{enumerate}
+\item We developed a unified hypergraph neural network framework capable of handling both coverage and partitioning problems without requiring problem-specific redesign.
+
+\item We achieved a scalability breakthrough, with linear computational complexity enabling solutions for problems with 20,000+ variables, far beyond the reach of exact methods. Tables I-III demonstrate this scaling advantage across all problem types.
+
+\item We demonstrated significant practical performance advantages, achieving 6.9\(\times\) faster runtimes than CPLEX on large instances (Table I), 199\(\times\) speedups over HypOp (Table II), and a lower memory footprint consistent with linear scaling. On multiway partitioning, HS cuts a much larger fraction of hyperedges within the same budget (e.g., \(\approx\)99.9\% vs 2–21\%; Table III).
+
+\item We introduced robust training strategies, including adaptive restarts and transfer learning (Table V), ensuring reliability and reusability across problem domains with 1.2-3.6\(\times\) speedups through cross-problem knowledge transfer.
+\end{enumerate}
+
+The experiments confirm that HyperSolver delivers near--optimal solutions (\(\geq 99.9\%\) on partitioning, within 15\% on coverage) while maintaining consistent performance across scales and densities. These findings establish HyperSolver as a scalable, unified alternative to traditional solvers for real-world applications.
+
+There remain avenues for future work. While HyperSolver emphasizes single--machine efficiency, distributed implementations could further extend scalability. Expanding the framework to additional combinatorial problems beyond those studied here would test its generality. Finally, integrating HyperSolver with hybrid approaches that combine exact optimization and learning--based methods may combine advantages: exactness on small cases and scalability on large ones.
+
+In summary, HyperSolver advances neural combinatorial optimization frameworks, offering a unified, efficient, and robust approach to problems previously considered intractable at scale.
+
+
+
+\begin{thebibliography}{00}
+
+\bibitem{GareyJohnson1979}
+M.~R. Garey and D.~S. Johnson, \emph{Computers and Intractability: A Guide to the Theory of NP-Completeness}. W.~H. Freeman, 1979.
+
+\bibitem{Cook1971}
+S.~A. Cook, ``The complexity of theorem-proving procedures,'' in \emph{Proc. STOC}, 1971, pp. 151--158.
+\bibitem{LandDoig1960}
+A.~H. Land and A.~G. Doig, ``An automatic method of solving discrete programming problems,'' \emph{Econometrica}, vol.~28, no.~3, pp. 497--520, 1960.
+
+\bibitem{PadbergRinaldi1991}
+M.~Padberg and G.~Rinaldi, ``A branch-and-cut algorithm for the traveling salesman problem,'' \emph{Operations Research}, vol.~39, no.~5, pp. 837--856, 1991.
+
+\bibitem{Vazirani2001}
+V.~V. Vazirani, \emph{Approximation Algorithms}. Springer, 2001.
+
+\bibitem{Kirkpatrick1983}
+S.~Kirkpatrick, C.~D. Gelatt, and M.~P. Vecchi, ``Optimization by simulated annealing,'' \emph{Science}, vol. 220, no. 4598, pp. 671--680, 1983.
+
+\bibitem{Holland1975}
+J.~H. Holland, \emph{Adaptation in Natural and Artificial Systems}. University of Michigan Press, 1975.
+
+\bibitem{Glover1989}
+F.~Glover, ``Tabu search—part I,'' \emph{ORSA Journal on Computing}, vol.~1, no.~3, pp. 190--206, 1989.
+
+\bibitem{Berge1973}
+C.~Berge, \emph{Hypergraphs: Combinatorics of Finite Sets}. North-Holland, 1973.
+
+\bibitem{Scarselli2009}
+F.~Scarselli, M.~Gori, A.~C. Tsoi, M.~Hagenbuchner, and G.~Monfardini, ``The graph neural network model,'' \emph{IEEE Trans. Neural Networks}, vol.~20, no.~1, pp. 61--80, 2009.
+
+\bibitem{KipfWelling2017}
+T.~N. Kipf and M.~Welling, ``Semi-supervised classification with graph convolutional networks,'' in \emph{Proc. ICLR}, 2017.
+
+\bibitem{Feng2019}
+Y.~Feng, H.~You, Z.~Zhang, R.~Ji, and Y.~Gao, ``Hypergraph neural networks,'' in \emph{Proc. AAAI}, 2019, pp. 3558--3565.
+
+\bibitem{IBM2020}
+IBM ILOG CPLEX Optimization Studio.
+Version 12.10. IBM Corp., Armonk, NY, 2020.
+
+\bibitem{Heydaribeni2024}
+N.~Heydaribeni, X.~Zhan, R.~Zhang, T.~Eliassi-Rad, and F.~Koushanfar,
+``Distributed constrained combinatorial optimization leveraging hypergraph neural networks,''
+\emph{Nature Machine Intelligence}, vol. 6, pp. 664--672, 2024.
+
+
+
+\end{thebibliography}
+
+
+\end{document}
