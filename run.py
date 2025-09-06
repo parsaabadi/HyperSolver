@@ -174,13 +174,8 @@ def build_model_for_shape(problem_type, shape, params):
     return None
 
 
-################
-#  PROCESS_*_INSTANCE  (unchanged code from your snippet)
-################
 
 def process_set_cover_instance(file_path, params, model=None, skip_train=False, reference_shape=None):
-    # same code from your snippet
-    # ...
     try:
         subsets, elements, header = read_set_cover_instance(file_path)
         num_elements = int(header[0])
@@ -262,8 +257,6 @@ def process_set_cover_instance(file_path, params, model=None, skip_train=False, 
 
 
 def process_hitting_set_instance(file_path, params, model=None, skip_train=False, reference_shape=None):
-    # same code from your snippet
-    # ...
     try:
         subsets, elements, header = read_hitting_set_instance(file_path)
         num_sets = int(header[0])
@@ -345,12 +338,10 @@ def process_hitting_set_instance(file_path, params, model=None, skip_train=False
 
 
 def process_subset_sum_instance(file_path, params, model=None, skip_train=False, reference_shape=None):
-    # same code from your snippet
-    # ...
     try:
         subsets, elements, header, weights = read_subset_sum_instance(file_path)
-        num_elements = int(header[0])  # number of items (nodes)
-        num_subsets = int(header[1])   # number of hyperedges (should be 1)
+        num_elements = int(header[0])
+        num_subsets = int(header[1])
         target_sum = float(header[2])
         print(f"Subset Sum: {num_elements} items, {num_subsets} hyperedge(s), target_sum={target_sum}\n")
 
@@ -403,7 +394,6 @@ def process_subset_sum_instance(file_path, params, model=None, skip_train=False,
             final_val = validate_solution(final_sol, inc_mat, "subset_sum", (weights, target_sum))
             sel_idx = (final_sol >= 0.5).nonzero(as_tuple=True)[0].tolist()
             
-            # Calculate final sum and deviation
             w_t = torch.tensor(weights, device=final_sol.device)
             final_sum = float((final_sol * w_t).sum().item())
             final_deviation = abs(final_sum - target_sum)
@@ -433,8 +423,6 @@ def process_subset_sum_instance(file_path, params, model=None, skip_train=False,
 
 
 def process_hypermaxcut_instance(file_path, params, model=None, skip_train=False, reference_shape=None):
-    # same code from your snippet
-    # ...
     try:
         subsets, elements, header = read_hypermaxcut_instance(file_path)
         num_nodes = int(header[0])
@@ -511,8 +499,6 @@ def process_hypermaxcut_instance(file_path, params, model=None, skip_train=False
 
 
 def process_hypermultiwaycut_instance(file_path, params, model=None, skip_train=False, reference_shape=None):
-    # same code from your snippet
-    # ...
     try:
         subsets, elements, header = read_hypermaxcut_instance(file_path)
         num_nodes = int(header[0])
@@ -596,7 +582,6 @@ def main():
                         help="Path to save/load model state dict.")
     args = parser.parse_args()
 
-    # load config
     if args.problem == "subset_sum":
         config_path = 'configs/subset_sum_config.json'
     elif args.problem == "hypermaxcut":
@@ -640,7 +625,6 @@ def main():
     if config and 'training' in config and 'num_partitions' in config['training']:
         params['num_partitions'] = config['training']['num_partitions']
 
-    # pick data folder
     if args.problem == "subset_sum":
         folder_path = config.get('folder_path', './data/subset_sum/') if config else './data/subset_sum/'
     elif args.problem == "hypermaxcut":
@@ -660,12 +644,6 @@ def main():
     total_post_time_all = 0.0
     total_start_time = time.time()
 
-    ########################
-    # shape2model_state: 
-    #   Key = 2D => (n, s, hidden_dim)
-    #          or 3D => (n, e, k, hidden_dim)
-    # ignoring problem_type
-    ########################
     shape2model_state = {}
 
     def make_shape_key(shape, model):
@@ -714,7 +692,6 @@ def main():
             if is_3d_ != is_t3d:
                 continue
             if is_3d_:
-                # shape is (n,e,k)
                 if shp_[2] != want_k:
                     continue
                 sum_k_ = shp_[0] + shp_[1]
@@ -728,7 +705,6 @@ def main():
                 best_key = k_
         return best_key
 
-    # ============== MAIN MODE LOGIC ==============
     if args.mode == "pretrain":
         if len(files) == 0:
             print(f"No .txt files found in folder: {folder_path}")
@@ -818,21 +794,18 @@ def main():
                 print(f"[Test-Only] {fname}: shape {shp} => can't build model => skipping.")
                 continue
 
-            # attempt exact
             shape_key = make_shape_key(shp, new_model)
             if shape_key in shape2model_state:
                 st_info = shape2model_state[shape_key]
                 new_model.load_state_dict(st_info['state'], strict=True)
                 print(f"[Test-Only] Found perfect shape match for {fname}.")
             else:
-                # find closest
                 best_key = find_closest_shape(shp, shape2model_state)
                 if best_key is not None:
                     print(f"[Test-Only] Using partial shape reuse from {best_key} => {fname}.")
                     st_info = shape2model_state[best_key]
                     from copy import deepcopy
                     old_shp, old_hd, old_is3d = parse_shape_key(best_key)
-                    # build dummy
                     if old_is3d:
                         base_model = ImprovedHyperGraphNet(
                             old_shp[0], old_shp[1],
@@ -867,7 +840,6 @@ def main():
                 else:
                     print(f"[Test-Only] No suitable pretrained shape => random fallback for {fname}.")
 
-            # skip_train => no final postprocess
             if args.problem == "set_cover":
                 out = process_set_cover_instance(fpath, params, new_model, skip_train=True)
             elif args.problem == "hitting_set":
@@ -989,7 +961,6 @@ def main():
                 total_post_time_all += out['post_time']
 
     else:
-        # instance_specific => brand new model each file
         for fname in files:
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()

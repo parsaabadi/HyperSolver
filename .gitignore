@@ -4,12 +4,14 @@ myenv/
 myenv3.10/
 env/
 ENV/
+.venv/
 
 # Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.so
 
 # Results and models
 results/
@@ -26,9 +28,23 @@ temp_*
 # OS files
 .DS_Store
 .vscode/
+*.swp
+*.swo
 
-# LaTeX auxiliary files
+# LaTeX auxiliary files (if any LaTeX files are added later)
 *.aux
 *.fls
 *.fdb_latexmk
 *.synctex.gz
+
+# IDE files
+.idea/
+*.iml
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/

@@ -125,10 +125,6 @@ def reinitialize_model(model: torch.nn.Module, optimizer: torch.optim.Optimizer,
     optimizer.state.clear()
 
 
-################################################################################
-# For set_cover/hitting_set => we do pure threshold in get_final_raw_solution
-# For subset_sum/hypermaxcut/hypermultiwaycut => unchanged local improvements.
-################################################################################
 
 def get_final_raw_solution(probs: torch.Tensor,
                            incidence_matrix: torch.Tensor,
@@ -154,7 +150,6 @@ def get_final_raw_solution(probs: torch.Tensor,
     device = probs.device
     raw_post_time = 0.0
 
-    # ------------------- Set Cover => pure threshold
     if problem_type == "set_cover":
         thr_dyn = dynamic_threshold(probs)
         sol_dyn = (probs >= thr_dyn).float()
@@ -163,7 +158,6 @@ def get_final_raw_solution(probs: torch.Tensor,
         sol_05 = (probs >= 0.5).float()
         cov_05, uncov_05 = batch_coverage_check(sol_05, incidence_matrix)
 
-        # pick whichever coverage is better (tie => smaller solution)
         if cov_dyn > cov_05:
             chosen_sol = sol_dyn
             chosen_cov = cov_dyn
@@ -198,7 +192,6 @@ def get_final_raw_solution(probs: torch.Tensor,
             'raw_post_time': raw_post_time
         }
 
-    # ------------------- Hitting Set => pure threshold
     elif problem_type == "hitting_set":
         thr_dyn = dynamic_threshold(probs)
         sol_dyn = (probs >= thr_dyn).float()
@@ -224,7 +217,6 @@ def get_final_raw_solution(probs: torch.Tensor,
             final_sol = sol_dyn
             final_cov = ratio_dyn
         elif abs(ratio_05 - ratio_dyn) < 1e-9:
-            # tie => pick smaller
             if sol_05.sum() < sol_dyn.sum():
                 final_sol = sol_05
                 final_cov = ratio_05
@@ -245,7 +237,6 @@ def get_final_raw_solution(probs: torch.Tensor,
             'raw_post_time': 0.0
         }
 
-    # ------------------- Subset Sum => original local approach
     elif problem_type == "subset_sum":
         thr_dyn = dynamic_threshold(probs)
         sol_dyn = (probs >= thr_dyn).float()
@@ -284,7 +275,6 @@ def get_final_raw_solution(probs: torch.Tensor,
             'raw_post_time': 0.0
         }
 
-    # ------------------- HyperMaxCut => local improvement (unchanged)
     elif problem_type == "hypermaxcut":
         from src.utils import post_process_solution_hypermaxcut_fast
 
@@ -354,7 +344,6 @@ def get_final_raw_solution(probs: torch.Tensor,
             'raw_post_time': raw_post_time
         }
 
-    # ------------------- HyperMultiwayCut => local improvement (unchanged)
     elif problem_type == "hypermultiwaycut":
         from src.utils import post_process_solution_hypermultiwaycut
 
@@ -377,7 +366,6 @@ def get_final_raw_solution(probs: torch.Tensor,
                 cut_count_main += 1
         ratio_main = cut_count_main / (n_edges + 1e-9)
 
-        # threshold=0.5 approach => pick best among ≥0.5
         threshold_05_assign = []
         for i in range(n_nodes):
             row = probs[i]
@@ -456,7 +444,6 @@ def get_final_raw_solution(probs: torch.Tensor,
         }
 
     else:
-        # fallback
         return {
             'solution': probs,
             'coverage_ratio': 0.0,
@@ -486,8 +473,7 @@ def train_model(model: torch.nn.Module,
     device = incidence_matrix.device
     n_rows = incidence_matrix.size(0)
 
-    # Unified meltdown threshold for all problem types
-    meltdown_floor = 0.05  # Unified threshold for general framework
+    meltdown_floor = 0.05
     meltdown_cov_threshold = 0.05
     
     meltdown_limit = 3
@@ -506,11 +492,9 @@ def train_model(model: torch.nn.Module,
         elif n_rows >= 10000:
             large_instance = True
 
-    # If extremely large => 10 epochs
     if extremely_large_instance:
         local_max_epochs = 10
     elif large_instance:
-        # If >=10000 and <20000 => limit epochs to 40 or 50, patience=10
         local_max_epochs = min(local_max_epochs, 50)
         local_patience = min(local_patience, 10)
 
@@ -518,9 +502,8 @@ def train_model(model: torch.nn.Module,
     coverage_stall_count = 0
     coverage_floor_patience = params.get('coverage_floor_patience', 15)
 
-    # Earlier phase2 trigger for set cover to focus on minimization sooner
     if problem_type == "set_cover":
-        phase2_cov = params.get('phase2_cov', 0.85)  # Trigger at 85% to focus on minimization earlier
+        phase2_cov = params.get('phase2_cov', 0.85)
     else:
         phase2_cov = params.get('phase2_cov', 0.98)
     phase2_patience = params.get('phase2_patience', 3)
@@ -543,7 +526,6 @@ def train_model(model: torch.nn.Module,
         if hasattr(model, 'set_epoch'):
             model.set_epoch(epoch, local_max_epochs)
         
-        # Clear gradients at start of epoch (proper training hygiene)
         optimizer.zero_grad()
 
         probs_init = model(incidence_matrix)
@@ -598,12 +580,10 @@ def train_model(model: torch.nn.Module,
             else:
                 probs = probs_init
 
-        # compute coverage ratio => figure out quality_score
         if problem_type == "set_cover":
             n_elems = incidence_matrix.size(0)
             n_subsets = incidence_matrix.size(1)
             
-            # More realistic quality score that balances coverage and efficiency
             estimated_optimal_sets = max(math.log(n_elems), math.sqrt(n_elems) / 3)
             ideal_density = estimated_optimal_sets / n_subsets
             ideal_density = max(ideal_density, 0.01)
@@ -611,7 +591,6 @@ def train_model(model: torch.nn.Module,
             mean_p = probs.mean().item()
             density_diff = abs(mean_p - ideal_density)
             
-            # Efficiency bonus: reward solutions that use fewer sets
             efficiency_bonus = max(0, 1.0 - mean_p / ideal_density) if ideal_density > 0 else 0
             
             quality_score = cov_ratio + (1.0 - density_diff) + efficiency_bonus
@@ -630,17 +609,15 @@ def train_model(model: torch.nn.Module,
         else:
             quality_score = 0.0
 
-        # track best solution (before parameter updates for consistency)
         if quality_score > best_quality:
             best_quality = quality_score
             best_probs = probs.detach().clone()
             best_epoch = epoch
-            no_improve = 0  # reset patience counter when quality improves
+            no_improve = 0
             print(f"  [*] New best solution. Quality={best_quality:.4f}\n")
         else:
-            no_improve += 1  # increment patience only when no improvement
+            no_improve += 1
 
-        # Phase2 detection
         if cov_ratio >= phase2_cov:
             phase2_count += 1
         else:
@@ -648,7 +625,6 @@ def train_model(model: torch.nn.Module,
         if phase2_count >= phase2_patience:
             in_phase2 = True
 
-        # coverage stall
         if (cov_ratio < coverage_floor) and (prev_cov < 0.8):
             coverage_stall_count += 1
         else:
@@ -661,7 +637,6 @@ def train_model(model: torch.nn.Module,
             coverage_stall_count = 0
             print(" [!] Coverage ratio stuck; reducing LR by factor 0.7.\n")
 
-        # compute loss
         loss_val = combined_loss(
             probs, incidence_matrix,
             epoch, local_max_epochs,
@@ -686,9 +661,6 @@ def train_model(model: torch.nn.Module,
             print("  [Phase 2 active: smaller-solution penalty]")
 
 
-        # Additional rule: If we have set_cover/hitting_set with n_rows>=10000
-        # => if n_rows>=30000 => check quality>=1.85 => early stop
-        # => else if n_rows>=10000 => check quality>=1.90 => early stop
         if problem_type in ["set_cover", "hitting_set"]:
             if n_rows >= 30000:
                 if quality_score >= 1.85:
@@ -699,20 +671,17 @@ def train_model(model: torch.nn.Module,
                     print(" [!] Large instance => quality≥1.90 => early stop.")
                     break
 
-        # possible early stops for subset_sum/hypermaxcut/hypermultiwaycut
         if problem_type == "subset_sum":
             if cov_ratio >= 0.9:
                 print("High subset-sum ratio ≥0.9 => early stop.")
                 break
         elif problem_type in ["hypermaxcut", "hypermultiwaycut"]:
-            # Modified logic for node-dependent threshold:
             n_nodes = incidence_matrix.size(0)
             threshold_coverage = 0.80 if n_nodes < 1000 else 0.9
             if cov_ratio >= threshold_coverage:
                 print(f"High coverage/cut ratio ≥{threshold_coverage} => early stop (n_nodes={n_nodes}).")
                 break
 
-        # normal patience-based early stop
         if (epoch >= params.get('min_epochs', 30)) and (no_improve >= local_patience):
             print(f"\nEarly stopping triggered. best_epoch={best_epoch}, best_quality={best_quality:.4f}")
             break
