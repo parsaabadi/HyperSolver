@@ -1,5 +1,5 @@
 {
-  "folder_path": "/Users/parsaboss/Desktop/AllCode/3cutversionSS/capsule-6230809/code/data/subset_sum_scaled",
+  "folder_path": "./data",
   "model": {
     "base": {
       "hidden_dim": 128,

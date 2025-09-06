@@ -1,5 +1,5 @@
 {
-    "folder_path": "/Users/parsaboss/Desktop/AllCode/3cutversionSS/capsule-6230809/code/data/hypergraph_data/synthetic",
+    "folder_path": "./data",
     "training": {
       "base": {
         "lr": 0.0005,
