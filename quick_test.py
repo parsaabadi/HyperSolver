@@ -19,14 +19,18 @@ def test_data_files():
         print(f"FAIL: No files in {data_dir}")
         return False
     
-    print(f"PASS: Found {len(files)} files in {data_dir}")
+    print(f"PASS: Found {len(files)} items in {data_dir}")
     
-    # Check specific files
-    subset_sum_files = [f for f in files if f.startswith('final_')]
-    hypergraph_files = [f for f in files if f.startswith('Hyp_')]
-    
-    print(f"  - Subset sum files: {len(subset_sum_files)}")
-    print(f"  - Hypergraph files: {len(hypergraph_files)}")
+    # Check organized folders
+    folders = ['subset_sum', 'set_cover', 'hypergraph_maxcut', 'hypergraph_multiway', 'hitting_set']
+    for folder in folders:
+        folder_path = os.path.join(data_dir, folder)
+        if os.path.exists(folder_path):
+            folder_files = os.listdir(folder_path)
+            print(f"  - {folder}: {len(folder_files)} files")
+        else:
+            print(f"  - {folder}: MISSING")
+            return False
     
     return True
 

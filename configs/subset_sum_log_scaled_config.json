@@ -1,5 +1,5 @@
 {
-  "folder_path": "./data",
+  "folder_path": "./data/subset_sum",
   "model": {
     "base": {
       "hidden_dim": 128,

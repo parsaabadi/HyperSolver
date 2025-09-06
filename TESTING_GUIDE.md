@@ -18,6 +18,24 @@ cd HyperSolver
 python test_setup.py
 ```
 
+## Data Organization
+
+The repository organizes test data by problem type:
+
+```
+data/
+├── subset_sum/          # Subset sum test instances (9 files)
+│   ├── final_backtracking_30.txt, final_backtracking_50.txt, final_backtracking_80.txt
+│   ├── final_knapsack_like_30.txt, final_knapsack_like_50.txt, final_knapsack_like_80.txt
+│   └── final_multiple_optima_30.txt, final_multiple_optima_50.txt, final_multiple_optima_80.txt
+├── set_cover/           # Set cover hypergraph instances (2 files)
+│   ├── Hyp_2000_4000_v2.txt (2k nodes, 4k hyperedges)
+│   └── Hyp_10000_20000_v3.txt (10k nodes, 20k hyperedges)
+├── hypergraph_maxcut/   # Max cut instances (linked from set_cover)
+├── hypergraph_multiway/ # Multiway cut instances (linked from set_cover)  
+└── hitting_set/         # Hitting set instances (linked from set_cover)
+```
+
 ## Testing Each Problem Type
 
 ### Set Cover Problem
@@ -25,7 +43,7 @@ python test_setup.py
 # Test with sample hypergraph data
 python run.py --problem set_cover
 
-# The system will automatically use data from ./data/ directory
+# Uses data from ./data/set_cover/ directory
 # Available files: Hyp_2000_4000_v2.txt, Hyp_10000_20000_v3.txt
 ```
 
@@ -34,27 +52,38 @@ python run.py --problem set_cover
 # Test with sample subset sum data
 python run.py --problem subset_sum
 
-# Available test files in ./data/:
-# - final_backtracking_30.txt (30 items)
-# - final_backtracking_50.txt (50 items) 
-# - final_backtracking_80.txt (80 items)
+# Uses data from ./data/subset_sum/ directory
+# Available test files:
+# - final_backtracking_30.txt, final_backtracking_50.txt, final_backtracking_80.txt (30/50/80 items)
 # - final_knapsack_like_30.txt, final_knapsack_like_50.txt, final_knapsack_like_80.txt
 # - final_multiple_optima_30.txt, final_multiple_optima_50.txt, final_multiple_optima_80.txt
 ```
 
 ### Hypergraph Max Cut
 ```bash
+# Test with hypergraph data
 python run.py --problem hypermaxcut
+
+# Uses data from ./data/hypergraph_maxcut/ directory  
+# Available files: Hyp_2000_4000_v2.txt, Hyp_10000_20000_v3.txt (linked from set_cover)
 ```
 
 ### Hypergraph Multiway Cut
 ```bash
+# Test with hypergraph data (3-way partitioning)
 python run.py --problem hypermultiwaycut
+
+# Uses data from ./data/hypergraph_multiway/ directory
+# Available files: Hyp_2000_4000_v2.txt, Hyp_10000_20000_v3.txt (linked from set_cover)
 ```
 
 ### Hitting Set Problem
 ```bash
+# Test with hypergraph data (dual of set cover)
 python run.py --problem hitting_set
+
+# Uses data from ./data/hitting_set/ directory
+# Available files: Hyp_2000_4000_v2.txt (linked from set_cover)
 ```
 
 ## Testing Different Training Modes
