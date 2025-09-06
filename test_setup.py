@@ -8,69 +8,69 @@ import os
 
 def test_imports():
     """Test that all required modules can be imported"""
-    print("🔍 Testing imports...")
+    print("Testing imports...")
     
     try:
         import torch
-        print(f"✅ PyTorch {torch.__version__}")
+        print(f"PASS: PyTorch {torch.__version__}")
     except ImportError:
-        print("❌ PyTorch not installed")
+        print("FAIL: PyTorch not installed")
         return False
     
     try:
         import numpy as np
-        print(f"✅ NumPy {np.__version__}")
+        print(f"PASS: NumPy {np.__version__}")
     except ImportError:
-        print("❌ NumPy not installed")
+        print("FAIL: NumPy not installed")
         return False
     
     try:
         from src.model import ImprovedHyperGraphNet
-        print("✅ HyperSolver model")
+        print("PASS: HyperSolver model")
     except ImportError as e:
-        print(f"❌ HyperSolver model: {e}")
+        print(f"FAIL: HyperSolver model: {e}")
         return False
     
     try:
         from src.trainer import train_model
-        print("✅ HyperSolver trainer")
+        print("PASS: HyperSolver trainer")
     except ImportError as e:
-        print(f"❌ HyperSolver trainer: {e}")
+        print(f"FAIL: HyperSolver trainer: {e}")
         return False
     
     try:
         from src.data_reading import read_set_cover_instance
-        print("✅ Data reading functions")
+        print("PASS: Data reading functions")
     except ImportError as e:
-        print(f"❌ Data reading: {e}")
+        print(f"FAIL: Data reading: {e}")
         return False
     
     return True
 
 def test_data_files():
     """Test that sample data files exist"""
-    print("\n📁 Testing data files...")
+    print("\nTesting data files...")
     
     data_dir = "data"
     if not os.path.exists(data_dir):
-        print("❌ Data directory not found")
+        print("FAIL: Data directory not found")
         return False
     
     data_files = os.listdir(data_dir)
     if len(data_files) == 0:
-        print("❌ No data files found")
+        print("FAIL: No data files found")
         return False
     
-    print(f"✅ Found {len(data_files)} data files")
+    print(f"PASS: Found {len(data_files)} data files")
     return True
 
 def test_configs():
     """Test that configuration files exist"""
-    print("\n⚙️ Testing configuration files...")
+    print("\nTesting configuration files...")
     
     config_dir = "configs"
     if not os.path.exists(config_dir):
-        print("❌ Config directory not found")
+        print("FAIL: Config directory not found")
         return False
     
     required_configs = [
@@ -81,16 +81,16 @@ def test_configs():
     
     for config in required_configs:
         if os.path.exists(os.path.join(config_dir, config)):
-            print(f"✅ {config}")
+            print(f"PASS: {config}")
         else:
-            print(f"❌ {config} missing")
+            print(f"FAIL: {config} missing")
             return False
     
     return True
 
 def main():
     """Run all tests"""
-    print("🧪 HyperSolver Setup Test\n")
+    print("HyperSolver Setup Test\n")
     
     all_passed = True
     
@@ -108,10 +108,10 @@ def main():
     
     print("\n" + "="*50)
     if all_passed:
-        print("🎉 All tests passed! HyperSolver is ready to use.")
+        print("All tests passed! HyperSolver is ready to use.")
         print("\nTry running: python run.py --problem set_cover")
     else:
-        print("❌ Some tests failed. Please check the installation.")
+        print("Some tests failed. Please check the installation.")
         sys.exit(1)
 
 if __name__ == "__main__":

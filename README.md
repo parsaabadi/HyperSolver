@@ -10,26 +10,31 @@ A unified hypergraph neural network framework for solving multiple NP-hard combi
 - **Hypergraph Max Cut**: Partition nodes to maximize cut hyperedges
 - **Hypergraph Multiway Cut**: Partition nodes into k groups maximizing cuts
 
-## Quick Start
+## Installation
 
-### 1. Installation
+### Quick Setup
 
 ```bash
-# Clone repository
 git clone <repository-url>
 cd hypersolver-repo
-
-# Create virtual environment
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# Install dependencies (choose one):
-pip install -r requirements.txt           # Minimal dependencies
-# OR
-pip install -r requirements_full.txt      # Complete environment (exact versions)
+pip install -r requirements.txt
 ```
 
-### 2. Run Examples
+### Alternative: Automated Installation
+
+```bash
+./INSTALL.sh
+```
+
+The installer will prompt you to choose between:
+1. **Minimal dependencies** (recommended for most users)
+2. **Complete environment** (exact development versions)
+
+## Usage
+
+### Basic Examples
 
 ```bash
 # Set Cover Problem
@@ -48,27 +53,49 @@ python run.py --problem hypermultiwaycut
 python run.py --problem hitting_set
 ```
 
-### 3. Training Modes
+### Training Modes
 
+**Instance-Specific Training** (default)
 ```bash
-# Instance-specific training (default)
 python run.py --problem set_cover --mode instance_specific
+```
+Trains a new model from scratch for each problem instance. Provides best performance but takes longer.
 
-# Transfer learning from pretrained model
+**Pretraining Mode**
+```bash
 python run.py --problem hypermaxcut --mode pretrain --pretrained_model_path models/set_cover.pth
 ```
+Uses transfer learning from a pretrained model. Faster training with maintained solution quality.
+
+**Test-Only Mode**
+```bash
+python run.py --problem subset_sum --mode test_only --pretrained_model_path models/subset_sum.pth
+```
+Evaluates using an existing trained model without additional training.
+
+**Test with Fine-tuning**
+```bash
+python run.py --problem hitting_set --mode test_finetune --pretrained_model_path models/set_cover.pth
+```
+Loads a pretrained model and performs limited fine-tuning before evaluation.
 
 ## Configuration
 
-Edit JSON files in `configs/` directory to modify:
-- Problem parameters
-- Training settings
-- Data paths
-- Neural network hyperparameters
+Edit JSON files in the `configs/` directory to modify:
+- Problem parameters (number of nodes, hyperedges)
+- Training settings (learning rate, epochs, patience)
+- Data paths and file locations
+- Neural network hyperparameters (hidden dimensions, layers)
+
+### Key Configuration Files
+- `set_cover_config.json`: Set cover problem settings
+- `subset_sum_config.json`: Subset sum problem settings  
+- `hypermaxcut_config.json`: Hypergraph max cut settings
+- `hypermultiwaycut_config.json`: Multiway cut settings
 
 ## Data Format
 
-### Set Cover / Hitting Set
+### Set Cover and Hitting Set
 ```
 <num_elements> <num_subsets>
 <element_ids_in_subset_1>
@@ -93,27 +120,48 @@ Edit JSON files in `configs/` directory to modify:
 ## Dependencies
 
 ### Requirements Files
-- **`requirements.txt`**: Minimal dependencies for core functionality
-- **`requirements_full.txt`**: Complete environment with exact versions used in development
+- **requirements.txt**: Minimal dependencies for core functionality
+- **requirements_full.txt**: Complete environment with exact versions used in development
 
 ### System Requirements
-- Python 3.7+
-- PyTorch 2.0+
-- NumPy 1.20+
-- 4GB+ RAM recommended
+- Python 3.7 or higher
+- PyTorch 2.0 or higher
+- NumPy 1.20 or higher
+- 4GB RAM recommended
 - GPU optional (CPU training supported)
 
-## Architecture
+## Architecture Overview
 
-- **Unified Model**: Single neural architecture for all problems
-- **Hypergraph Representation**: Direct multi-element constraint modeling  
+- **Unified Model**: Single neural architecture handles all problem types
+- **Hypergraph Representation**: Direct modeling of multi-element constraints  
 - **Unsupervised Training**: No pre-solved examples required
-- **Transfer Learning**: Knowledge sharing across problem types
-- **Adaptive Training**: Automatic restart mechanisms
+- **Transfer Learning**: Knowledge sharing across different problem types
+- **Adaptive Training**: Automatic restart mechanisms prevent local minima
 
-## Performance
+## Performance Characteristics
 
-- **Scalability**: Linear complexity O(|V| + |E|) 
-- **Speed**: 6.9× faster than CPLEX on large instances
+- **Scalability**: Linear complexity O(|V| + |E|) with problem size
+- **Speed**: Up to 6.9x faster than CPLEX on large instances
 - **Quality**: Near-optimal solutions across all problem types
-- **Memory**: Efficient linear memory usage
+- **Memory**: Efficient linear memory usage scaling
+
+## Testing Installation
+
+Run the verification script to ensure everything is working:
+
+```bash
+python test_setup.py
+```
+
+This will verify:
+- All required packages are installed
+- Core modules import successfully  
+- Sample data files are present
+- Configuration files are valid
+
+## Troubleshooting
+
+**Import Errors**: Ensure virtual environment is activated and dependencies installed
+**Memory Issues**: Reduce problem size or use CPU-only mode for large instances
+**Training Slow**: Enable GPU acceleration or reduce number of training epochs
+**Configuration Errors**: Check JSON syntax in config files
