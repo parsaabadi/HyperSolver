@@ -24,16 +24,11 @@ The repository organizes test data by problem type:
 
 ```
 data/
-├── subset_sum/          # Subset sum test instances (9 files)
-│   ├── final_backtracking_30.txt, final_backtracking_50.txt, final_backtracking_80.txt
-│   ├── final_knapsack_like_30.txt, final_knapsack_like_50.txt, final_knapsack_like_80.txt
-│   └── final_multiple_optima_30.txt, final_multiple_optima_50.txt, final_multiple_optima_80.txt
-├── set_cover/           # Set cover hypergraph instances (2 files)
-│   ├── Hyp_2000_4000_v2.txt (2k nodes, 4k hyperedges)
-│   └── Hyp_10000_20000_v3.txt (10k nodes, 20k hyperedges)
-├── hypergraph_maxcut/   # Max cut instances (linked from set_cover)
-├── hypergraph_multiway/ # Multiway cut instances (linked from set_cover)  
-└── hitting_set/         # Hitting set instances (linked from set_cover)
+├── subset_sum/          # Subset sum test instances with various difficulty levels
+├── set_cover/           # Set cover hypergraph instances of different sizes
+├── hypergraph_maxcut/   # Max cut instances (shared with set_cover)
+├── hypergraph_multiway/ # Multiway cut instances (shared with set_cover)  
+└── hitting_set/         # Hitting set instances (shared with set_cover)
 ```
 
 ## Testing Each Problem Type
@@ -44,7 +39,7 @@ data/
 python run.py --problem set_cover
 
 # Uses data from ./data/set_cover/ directory
-# Available files: Hyp_2000_4000_v2.txt, Hyp_10000_20000_v3.txt
+# Contains hypergraph instances of different sizes
 ```
 
 ### Subset Sum Problem
@@ -53,10 +48,7 @@ python run.py --problem set_cover
 python run.py --problem subset_sum
 
 # Uses data from ./data/subset_sum/ directory
-# Available test files:
-# - final_backtracking_30.txt, final_backtracking_50.txt, final_backtracking_80.txt (30/50/80 items)
-# - final_knapsack_like_30.txt, final_knapsack_like_50.txt, final_knapsack_like_80.txt
-# - final_multiple_optima_30.txt, final_multiple_optima_50.txt, final_multiple_optima_80.txt
+# Contains test instances with various difficulty levels and item counts
 ```
 
 ### Hypergraph Max Cut
@@ -65,7 +57,7 @@ python run.py --problem subset_sum
 python run.py --problem hypermaxcut
 
 # Uses data from ./data/hypergraph_maxcut/ directory  
-# Available files: Hyp_2000_4000_v2.txt, Hyp_10000_20000_v3.txt (linked from set_cover)
+# Contains hypergraph instances for max cut testing
 ```
 
 ### Hypergraph Multiway Cut
@@ -74,7 +66,7 @@ python run.py --problem hypermaxcut
 python run.py --problem hypermultiwaycut
 
 # Uses data from ./data/hypergraph_multiway/ directory
-# Available files: Hyp_2000_4000_v2.txt, Hyp_10000_20000_v3.txt (linked from set_cover)
+# Contains hypergraph instances for multiway partitioning
 ```
 
 ### Hitting Set Problem
@@ -83,7 +75,7 @@ python run.py --problem hypermultiwaycut
 python run.py --problem hitting_set
 
 # Uses data from ./data/hitting_set/ directory
-# Available files: Hyp_2000_4000_v2.txt (linked from set_cover)
+# Contains test instances for hitting set problems
 ```
 
 ## Testing Different Training Modes
@@ -117,7 +109,7 @@ Each run should show:
 ...
 ```
 
-Example (Hyp_2000_4000_v2.txt):
+Example:
 ```
 2000 4000
 1 45 123 456 789
@@ -131,7 +123,7 @@ Example (Hyp_2000_4000_v2.txt):
 <weight_1> <weight_2> ... <weight_n>
 ```
 
-Example (final_backtracking_30.txt):
+Example:
 ```
 30 500000000000
 12345678901 23456789012 34567890123 ...
