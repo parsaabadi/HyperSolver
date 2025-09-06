@@ -60,7 +60,6 @@ class HyperGraphMessageNet(nn.Module):
         node_emb = self.node_embedding
         edge_emb = self.edge_embedding
 
-        # degrees
         if incidence_matrix.is_sparse:
             edge_deg = torch.sparse.sum(incidence_matrix, dim=0)
             node_deg = torch.sparse.sum(incidence_matrix, dim=1)
@@ -75,7 +74,6 @@ class HyperGraphMessageNet(nn.Module):
             node_deg = incidence_matrix.sum(dim=1).clamp(min=1e-6)
 
         for layer_idx in range(self.num_layers):
-            # edge update
             if incidence_matrix.is_sparse:
                 edge_msg = torch.sparse.mm(incidence_matrix.transpose(0,1), node_emb)
             else:
@@ -86,7 +84,6 @@ class HyperGraphMessageNet(nn.Module):
             delta_edge = self.edge_updater[layer_idx](combined_edge)
             edge_emb = edge_emb + delta_edge
 
-            # node update
             if incidence_matrix.is_sparse:
                 node_msg = torch.sparse.mm(incidence_matrix, edge_emb)
             else:
@@ -98,8 +95,7 @@ class HyperGraphMessageNet(nn.Module):
             node_emb = node_emb + delta_node
 
         if self.problem_type == "subset_sum":
-            # For subset sum, we need probabilities for nodes (items), not edges
-            logits = self.edge_decoder(node_emb)  # Use node embeddings instead
+            logits = self.edge_decoder(node_emb)
         else:
             logits = self.edge_decoder(edge_emb)
             
@@ -126,8 +122,8 @@ class ImprovedHyperGraphNet(nn.Module):
 
         if problem_type == "hitting_set":
             self.hypergraph_net = HyperGraphMessageNet(
-                num_elements=num_subsets,   # swapped
-                num_subsets=num_elements,   # swapped
+                num_elements=num_subsets,
+                num_subsets=num_elements,
                 hidden_dim=hidden_dim,
                 num_layers=num_layers,
                 dropout_rate=dropout_rate,
@@ -161,7 +157,6 @@ class ImprovedHyperGraphNet(nn.Module):
         dev = hg.node_embedding.device
 
         if self.problem_type == "hitting_set":
-            # internally node=old_num_subsets, edge=old_num_elements
             new_nodes = new_num_subsets
             new_edges = new_num_elements
         else:
