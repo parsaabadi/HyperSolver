@@ -23,8 +23,10 @@ cd hypersolver-repo
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (choose one):
+pip install -r requirements.txt           # Minimal dependencies
+# OR
+pip install -r requirements_full.txt      # Complete environment (exact versions)
 ```
 
 ### 2. Run Examples
@@ -88,10 +90,15 @@ Edit JSON files in `configs/` directory to modify:
 ...
 ```
 
-## System Requirements
+## Dependencies
 
+### Requirements Files
+- **`requirements.txt`**: Minimal dependencies for core functionality
+- **`requirements_full.txt`**: Complete environment with exact versions used in development
+
+### System Requirements
 - Python 3.7+
-- PyTorch 1.9+
+- PyTorch 2.0+
 - NumPy 1.20+
 - 4GB+ RAM recommended
 - GPU optional (CPU training supported)

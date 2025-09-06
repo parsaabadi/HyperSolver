@@ -31,7 +31,21 @@ pip install --upgrade pip
 
 # Install requirements
 echo "📥 Installing dependencies..."
-pip install -r requirements.txt
+echo "Choose installation mode:"
+echo "1) Minimal dependencies (recommended for most users)"
+echo "2) Complete environment (exact development versions)"
+read -p "Enter choice (1 or 2): " choice
+
+case $choice in
+    2)
+        echo "Installing complete environment..."
+        pip install -r requirements_full.txt
+        ;;
+    *)
+        echo "Installing minimal dependencies..."
+        pip install -r requirements.txt
+        ;;
+esac
 
 echo ""
 echo "✅ Installation complete!"
