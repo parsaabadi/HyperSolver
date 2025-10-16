@@ -1,4 +1,4 @@
-# HyperSolver: Unified Framework for Combinatorial Optimization
+# HYPERSOLVER: A PRACTICAL UNIFIED FRAMEWORK FOR LARGE-SCALE COMBINATORIAL OPTIMIZATION
 
 A unified hypergraph neural network framework for solving multiple NP-hard combinatorial optimization problems using a single architecture.
 
